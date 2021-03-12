@@ -95,7 +95,8 @@ class Cmd(cmd2.Cmd):
             sys.stdout.flush()
 
     async def _greeting(self):
-        pass
+        sys.stdout.write(self.prompt)
+        sys.stdout.flush()
 
     def _exec_cmd(self, line):
         r = self.onecmd_plus_hooks(line)
