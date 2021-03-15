@@ -33,6 +33,7 @@ class Cmd(cmd2.Cmd):
         self.loop = None
         self.rmode = "Reader"
         self.cmd_running = True
+        self.reader_enabled = True
 
     def _start_controller(self):
         """
@@ -84,12 +85,17 @@ class Cmd(cmd2.Cmd):
             raise TypeError("self.loop is None.")
         self.loop.add_reader(self.stdin.fileno(), self.reader)
 
-    def stop_reader(self):
+    def remove_reader(self):
         if self.loop is None:
             raise TypeError("self.loop is None.")
         self.loop.remove_reader(self.stdin.fileno())
 
+    def switch_reader(self, enable=True):
+        self.reader_enabled = enable
+
     def reader(self):
+        if not self.reader_enabled:
+            return
         line = sys.stdin.readline()
         self._exec_cmd(line)
         sys.stdout.write(self.prompt)
