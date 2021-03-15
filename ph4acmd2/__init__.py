@@ -76,10 +76,18 @@ class Cmd(cmd2.Cmd):
         self.loop.create_task(self._greeting())
 
     def _start_reader(self):
+        self.reset_reader()
+        self.loop.create_task(self._greeting())
+
+    def reset_reader(self):
         if self.loop is None:
             raise TypeError("self.loop is None.")
         self.loop.add_reader(self.stdin.fileno(), self.reader)
-        self.loop.create_task(self._greeting())
+
+    def stop_reader(self):
+        if self.loop is None:
+            raise TypeError("self.loop is None.")
+        self.loop.remove_reader(self.stdin.fileno())
 
     def reader(self):
         line = sys.stdin.readline()
