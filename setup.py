@@ -1,7 +1,7 @@
 from setuptools import setup
 from setuptools import find_packages
 
-version = '0.0.5'
+version = '0.0.6'
 
 install_requires = [
     'cmd2==1.5.0',
@@ -22,10 +22,10 @@ docs_extras = [
 
 try:
     import pypandoc
-    long_description = pypandoc.convert('README.md', 'rst')
+    long_description = pypandoc.convert_file('README.md', 'rst')
     long_description = long_description.replace("\r", '')
 
-except(IOError, ImportError):
+except(IOError, ImportError, AttributeError):
     import io
     with io.open('README.md', encoding="utf-8") as f:
         long_description = f.read()
