@@ -10,14 +10,14 @@
 # This lib is inspired by Cmd standard lib Python >3.5 (under Python Software
 # Foundation License 2)
 
-import logging
-import sys
-import os
-
 import asyncio
+import logging
+import os
+import sys
 import threading
 from contextlib import suppress
 from typing import Optional
+
 import cmd2
 
 logger = logging.getLogger(__name__)
@@ -34,25 +34,33 @@ class Cmd(cmd2.Cmd):
         self.rmode = "Reader"
         self.cmd_running = True
         self.reader_enabled = True
+        self.is_win = False
 
     def _start_controller(self):
         """
         Control structure to start new cmd
         """
         # Loop check
+        if sys.platform == "win32":
+            self.is_win = True
+
         if self.loop is None:
-            if sys.platform == 'win32':
+            if self.is_win:
                 self.loop = asyncio.ProactorEventLoop()
+                asyncio.set_event_loop(self.loop)
+                logger.debug("Starting new ProactorEventLoop")
             else:
                 self.loop = asyncio.get_event_loop()
+                logger.debug("Starting new event loop")
 
-        # Starting by add "tasks" in "loop"
+        # Starting by adding "tasks" to the "loop"
         if self.rmode == "Reader":
             self._start_reader()
         elif self.rmode == "Run":
             self._start_run()
         else:
             raise TypeError("self.mode is not Reader or Run.")
+
         # Start or not loop.run_forever
         if self.run_loop:
             try:
@@ -62,8 +70,8 @@ class Cmd(cmd2.Cmd):
             except KeyboardInterrupt:
                 print("Cmd._start_controller stop loop. Bye.")
                 self.loop.stop()
-                pending = asyncio.Task.all_tasks(loop=self.loop)
-                print(asyncio.Task.all_tasks(loop=self.loop))
+                pending = asyncio.all_tasks(loop=self.loop)
+                print(pending)
                 for task in pending:
                     task.cancel()
                     with suppress(asyncio.CancelledError):
@@ -75,6 +83,7 @@ class Cmd(cmd2.Cmd):
             raise TypeError("self.loop is None.")
         self.loop.create_task(self._read_line())
         self.loop.create_task(self._greeting())
+        logger.debug("start_run kicked of reading tasks")
 
     def _start_reader(self):
         self.reset_reader()
@@ -83,12 +92,20 @@ class Cmd(cmd2.Cmd):
     def reset_reader(self):
         if self.loop is None:
             raise TypeError("self.loop is None.")
-        self.loop.add_reader(self.stdin.fileno(), self.reader)
+
+        self.reader_enabled = True  # Ensure reading is enabled
+        if not self.is_win:
+            self.loop.add_reader(self.stdin.fileno(), self.reader)
+        else:
+            self.loop.create_task(self._read_line())
 
     def remove_reader(self):
         if self.loop is None:
             raise TypeError("self.loop is None.")
-        self.loop.remove_reader(self.stdin.fileno())
+        self.reader_enabled = False  # Disable reading
+
+        if not self.is_win:
+            self.loop.remove_reader(self.stdin.fileno())
 
     def switch_reader(self, enable=True):
         self.reader_enabled = enable
@@ -103,10 +120,14 @@ class Cmd(cmd2.Cmd):
 
     async def _read_line(self):
         while True:
-            line = await self.loop.run_in_executor(None, sys.stdin.readline)
-            self._exec_cmd(line)
-            print(self.prompt)
-            sys.stdout.flush()
+            if self.reader_enabled:
+                # Run stdin reading in a separate thread using run_in_executor
+                line = await self.loop.run_in_executor(None, sys.stdin.readline)
+                self._exec_cmd(line)
+                sys.stdout.write(self.prompt)
+                sys.stdout.flush()
+            else:
+                await asyncio.sleep(1)  # Sleep briefly to avoid a tight loop
 
     async def _greeting(self):
         sys.stdout.write(self.prompt)
@@ -126,6 +147,7 @@ class Cmd(cmd2.Cmd):
 
         # Register a SIGINT signal handler for Ctrl+C
         import signal
+
         original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self.sigint_handler)
 
@@ -176,7 +198,7 @@ class Cmd(cmd2.Cmd):
                 saved_readline_settings = self._set_up_cmd2_readline()
 
             # Run startup commands
-            stop = self.runcmds_plus_hooks(self._startup_commands)
+            stop = self.runcmds_plus_hooks(self._startup_commands)  # type: ignore[arg-type]
             self._startup_commands.clear()
             self._start_controller()
 
@@ -189,8 +211,7 @@ class Cmd(cmd2.Cmd):
                     if self.quit_on_sigint:
                         raise ex
                     else:
-                        self.poutput('^C')
-                        line = ''
+                        self.poutput("^C")
 
                 # Run the command along with all associated pre and post hooks
                 # stop = self.onecmd_plus_hooks(line)
