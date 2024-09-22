@@ -2,8 +2,8 @@
 
 Async extension to a famous [Cmd2](https://github.com/python-cmd2/cmd2) library.
 
-Cmd2 permanently occupies the main thread which is a problem if you plan to receive callbacks on the main thread 
-(e.g., by Bluetooth stack Bleak) 
+Cmd2 permanently occupies the main thread which is a problem if you plan to receive callbacks on the main thread
+(e.g., by Bluetooth stack Bleak)
 
 ## Pip installation
 
@@ -41,12 +41,32 @@ if __name__ == '__main__':
 
 ## Limitations
 
-We use [asyncio.lool.add_reader](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.add_reader) to read 
+We use [asyncio.lool.add_reader](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.add_reader) to read
 from the stdin and process the commands thus it is not currently possible to ue readline features such as auto-complete or
 ctrl-r, UP-arrow for previous commands, etc...
 
 Readline occupies main thread in a blocking way, so it is not compatible with runloop model running on the main thread
-and executing coroutines. 
+and executing coroutines.
 
 In order to use readline it needs to add async support. A potential workaround could be to access terminal in async way
-e.g., submit short coroutine monitoring the terminal state to simulate readline library. However, it is not tested.  
+e.g., submit short coroutine monitoring the terminal state to simulate readline library. However, it is not tested.
+
+## Development
+
+Install pre-commit hooks defined by `.pre-commit-config.yaml`
+
+```shell
+pip3 install -U pre-commit pytest mypy
+mypy --install-types
+pre-commit install
+```
+
+Auto fix
+```shell
+pre-commit run --all-files
+```
+
+Plugin version update
+```shell
+pre-commit autoupdate
+```
